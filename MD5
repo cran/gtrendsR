@@ -1,0 +1,15 @@
+4e2e576e7ea3c96b470839b3351fef54 *DESCRIPTION
+3b9d28b58fd5c032496d01f2ca332682 *NAMESPACE
+c20964dcc1a1d49fb24249a289772762 *NEWS.md
+7791856d1a2037cd4ee4c9b2f205eb35 *R/countries.R
+924015ac7669735b1aec0af4b2aa0911 *R/gtrends.R
+561cc2c0b61aa810065f2da2fc415e89 *R/init.R
+58593bf5d890e5bf80ba9c136d643c15 *R/sport_trend.R
+d0bda0f8b268ffdd5e27bcf25aff39fb *README.md
+755c730a0da0a455bf71c1f069c2129f *data/countries.RData
+25717fda7abde9cbbe7f41a4ca130234 *data/sport_trend.RData
+97ab2ab639ddbedac3b72c40bb800dc3 *inst/images/sport_trend_2015-11.png
+bb8ac8d6619f50a47af7eb5d187a72f1 *man/countries.Rd
+7347e8088c0ced3cc56bf90023b257fc *man/gconnect.Rd
+ff8bb0cc68ce53e5709755737adbc287 *man/gtrends.Rd
+06b558a376b3674fe55a6f44cd4a9907 *man/sport_trend.Rd
