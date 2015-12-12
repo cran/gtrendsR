@@ -25,7 +25,12 @@
 #' is set to (the text string) \sQuote{TRUE}, or the the R option
 #' \code{options("google.autoconnect")} is set to \sQuote{TRUE} then
 #' the connection is automatically made at package load.
-#' 
+#'
+#' @note Should you have trouble connecting, and also use two-factor authentication on
+#' your Google Account, then consider creating another Google account (without
+#' two-factor authentication) which should allow automated (i.e. programmatic)
+#' connection here.
+
 #' @param usr User name (ex.: yourmail@gmail.com); alternatively the 
 #' environment variable \code{GOOGLE_USER} as well as 
 #' \code{options("google.user")} can be used to supply the user name.
@@ -84,28 +89,31 @@ gconnect <- function(usr = NULL, psw = NULL, verbose = FALSE) {
   
   galx <- .getGALX(ch)
   
-  formparams <-list(Email=usr,
-                    Passwd=psw,
-                    GALX = galx,
-                    PersistentCookie= "yes",
-                    continue = "http://www.google.com/trends")
+  formparams <- list(Email = usr,
+                     Passwd = psw,
+                     GALX = galx,
+                     PersistentCookie = "yes",
+                     continue = "http://www.google.com/trends")
   
-  authenticatePage <- postForm(authenticateURL, .params=formparams, curl=ch)
+  authenticatePage <- postForm(authenticateURL, .params = formparams, curl = ch)
+  #print(getCurlInfo(ch)$response.code)
   
-  authenticatePage2 <- getURL("http://www.google.com", curl = ch)
+  authenticatePage2 <- getURL("https://www.google.com/accounts/CheckCookie?chtml=LoginDoneHtml", curl = ch)
+  #print(getCurlInfo(ch)$response.code)
   
+  #if http answer is 200 then login was ok
   if (getCurlInfo(ch)$response.code == 200) {
     
     if (verbose) cat("Google login successful!\n")
   
   } else {
     
-    if (verbose) cat("Google login failed!")
-  
+    cat("Google login failed! Check your login information.")
+    return(NULL)
   }
 
   ## store connection handler in package-local environment
-  assign("ch", ch, envir=.pkgenv)
+  assign("ch", ch, envir = .pkgenv)
     
   invisible(ch)
   
@@ -208,6 +216,9 @@ gtrends.default <- function(query,
             length(res) == 1,
             length(query) <= 5)
   
+  if(is.null(ch)) stop("You are not signed in. Please log in using gconnect().",
+                       call. = FALSE)
+  
   ## Verify the dates
   start_date <- as.Date(start_date, "%Y-%m-%d")  
   end_date <- as.Date(end_date, "%Y-%m-%d")  
@@ -235,6 +246,9 @@ gtrends.default <- function(query,
   }
   
   query <- paste(query, collapse = ",")
+  
+  ## Change encoding to utf-8
+  query <- iconv(query, "latin1", "utf-8", sub = "byte")
   
   if (inherits(ch, "CURLHandle") != TRUE) {
     stop("'ch' arguments has to be result from 'gconnect()'.", 
@@ -295,9 +309,9 @@ gtrends.default <- function(query,
 #' @export
 summary.gtrends <- function(object, ...) {
   cat("Google Trends results for:\n")
-  cat(object[["meta"]][15])
+  cat(unlist(strsplit(object$query[1], ",")))
   cat("\nRequested at: ")
-  cat(object[["meta"]][4])
+  cat(object$query[4])
   cat("\n\nSummary of trend:\n")
   print(summary(as.zoo.gtrends(object)))
   ## cat("\nMain regions:\n")
@@ -333,11 +347,6 @@ summary.gtrends <- function(object, ...) {
 #' @import RColorBrewer
 #' @import ggplot2
 #' @examples 
-#' \dontrun{
-#' #' ch <- gconnect("usr@gmail.com", "psw")
-#' sport_trend <- gtrends(c("nhl", "nba", "nfl"))
-#' }
-#' 
 #' data("sport_trend")
 #' plot(sport_trend)
 #' @export
@@ -360,15 +369,12 @@ plot.gtrends <- function(x,
     
     df <- x$trend
     
-    keywords <- unlist(strsplit(tolower(x$query[1]), ","))
-    idvar <- names(df)[1:(ncol(df) - length(keywords))]
-    
     df <- reshape(df,
-                  varying = list((length(idvar) +1):ncol(df)),
+                  varying = names(df)[mapply(is.numeric, x$trend)],
                   v.names = "hit",
-                  idvar = idvar,
+                  idvar = names(df)[!mapply(is.numeric, x$trend)],
                   direction = "long",
-                  times = unlist(keywords),
+                  times = names(df)[mapply(is.numeric, x$trend)],
                   timevar = "keyword")
     
     df$start <- as.POSIXct(df$start)
@@ -386,6 +392,9 @@ plot.gtrends <- function(x,
     
     x <- x[["regions"]][[ind]]
     
+    if(all(is.na(x))) stop("Not enough search volume to show results.", 
+                      call. = FALSE)
+    
     df <- data.frame(loc = x[, 1], hits = x[, 2])
     
     plot(gvisGeoChart(df, 'loc', 'hits', options = gvisopt))
@@ -394,6 +403,9 @@ plot.gtrends <- function(x,
     
     x <- x[["topmetros"]][[ind]]
     
+    if(all(is.na(x))) stop("Not enough search volume to show results.", 
+                      call. = FALSE)
+    
     df <- data.frame(loc = x[, 1], hits = x[, 2])
     
     plot(gvisGeoChart(df, 'loc', 'hits', options = gvisopt))
@@ -401,6 +413,9 @@ plot.gtrends <- function(x,
   } else if (type == "cities") {
     
     x <- x[["cities"]][[ind]]
+    
+    if(all(is.na(x))) stop("Not enough search volume to show results.", 
+                      call. = FALSE)
     
     df <- data.frame(loc = x[, 1], hits = x[, 2])
     
@@ -418,52 +433,95 @@ as.zoo.gtrends <- function(x, ...) {
 }
 
 .processResults <- function(resultsText, queryparams) {
+  
+  #get back to latin1 encoding
+  queryparams[1] <- iconv(queryparams[1], "utf-8", "latin1", sub = "byte")
+  
   vec <- strsplit(resultsText, "\\\n{2,}")[[1]]
   
   ## Make sure there are some results have been returned.
-  if (length(vec) < 6) {
+  if (length(vec) < 2) {
     stop("Not enough search volume. Please change your search terms.",
          call. = FALSE)
   }
   
-  ## results headers -- for 'geo="US"' and three terms, we get 17 results (!!)
-  headers <-
-    unname(sapply(vec, function(v)
-      strsplit(v, "\\\n")[[1]][1]))
-  
   ## block 1: meta data
   meta  <- strsplit(vec[1], "\\\r\\\n")[[1]]
-  
+
+  #---------------------------------------------------------------------
+  # Section to deal with trend data.
+  #---------------------------------------------------------------------
+    
   ## block 2: trend
   trend <- read.csv(textConnection(strsplit(vec[2], "\\\n")[[1]]),
                     skip = 1,
                     stringsAsFactors = FALSE)
   
-  weeks <- do.call(rbind, strsplit(trend[, 1], " - "))
+  weeks <- data.frame(do.call(rbind, strsplit(trend[, 1], " - ")))
   
-  ## 1 column means resolution is day
-  if(ncol(weeks) == 1){
-    
-    names(trend)[1] <- "start"
-    trend$start <- as.Date(trend$start)
+  trend <- trend[, mapply(is.numeric, trend), drop = FALSE]
   
-    }else{ ## week resolution
+  is_weekly <- all(do.call(c, 
+                           lapply(weeks, 
+                                  grepl, 
+                                  pattern = "\\d{4}-\\d{2}-\\d{2}")))
+  
+  is_daily <- all(do.call(c, 
+                           lapply(weeks, 
+                                  grepl, 
+                                  pattern = "\\d{4}-\\d{2}")))
+  
+  # data = gtrends(c("nhl", "asasnfassaasl"), "IS") # Bug here with IS
+  if(!is_weekly & !is_daily){
+    stop("Not enough search volume to show results.", call. = FALSE)
+  }
+  
+  if(is_weekly){
     
-    trend <- data.frame(start = as.Date(weeks[, 1]),
-                        end = as.Date(weeks[, 2]),
-                        trend[, 2:ncol(trend)])
-      
-    names(trend)[3:ncol(trend)] <- unlist(strsplit(queryparams[1], ","))
+    weeks <- lapply(weeks, as.Date, SIMPLIFY = FALSE)
+    weeks <- do.call(cbind.data.frame, weeks)
+    names(weeks) <- c("start", "end")[1:ncol(weeks)]
+  
+  }else{
+    
+    weeks <- paste(weeks[, 1], "-01", sep = "")
+    weeks <- data.frame(start = weeks)
+    
+    message("The number of hits was too low for daily (weekly) resolution. Results were returned using weekly (monthly) resolution instead.")
+  }
+  
+  trend <- cbind(weeks, trend)
+  
+  # Verify that all requested keywords have been recevied. Sometimes not
+  # enough data for some requested kw. If that happen, Google will not 
+  # return data.
+  wanted_kw <- make.names(tolower(unlist(strsplit(queryparams[1], ","))))
+  received_kw <- names(trend)[mapply(is.numeric, trend)]
+  
+  if(length(setdiff(wanted_kw, received_kw) != 0)){
+    message(paste("Not enough data for ", setdiff(wanted_kw, received_kw), 
+                  " keyword(s).", sep = "'"))
   }
   
   
-  # check results column for NA, exclude old (unparsed) time column
-  trend <- na.omit(trend)
+  #---------------------------------------------------------------------
+  # Section to deal with geographical data
+  #---------------------------------------------------------------------
   
+  ## results headers -- for 'geo="US"' and three terms, we get 17 results (!!)
+  headers <- unname(sapply(vec, function(v) strsplit(v, "\\\n")[[1]][1]))
+
+  #hit_sum <- colSums(trend[, mapply(is.numeric, trend)])
+  
+  nkw <- length(received_kw)
   ## first set of blocks: top regions
-  regidx <- grep("Top (sub)?regions", headers)
+  
+  start <- 3 # Always start at index 3
+  
+  start <- seq(start, start + (nkw - 1))
+  
   reglist <-
-    lapply(regidx, function(i)
+    lapply(start, function(i)
       read.csv(
         textConnection(strsplit(vec[i], "\\\n")[[1]]),
         skip = 1,
@@ -472,22 +530,28 @@ as.zoo.gtrends <- function(x, ...) {
   
   ## next (optional, if geo==US) block
   if (queryparams["geo"] == "US") {
-    metidx <- grep("Top metros", headers)
+    
+    start <- max(start) + 1
+    start <- seq(start, start + (nkw - 1))
+    
+    #metidx <- grep("Top metros", headers)
     metlist <-
-      lapply(metidx, function(i)
+      lapply(start, function(i)
         read.csv(
           textConnection(strsplit(vec[i], "\\\n")[[1]]),
           skip = 1,
           stringsAsFactors = FALSE
         ))
-  } else {
+  }else{
     metlist <- NULL
   }
   
   ## next block: top cities
-  citidx <- grep("Top cities", headers)
+  start <- max(start) + 1
+  start <- seq(start, start + (nkw - 1))
+  
   citlist <-
-    lapply(citidx, function(i)
+    lapply(start, function(i)
       read.csv(
         textConnection(strsplit(vec[i], "\\\n")[[1]]),
         skip = 1,
@@ -495,9 +559,11 @@ as.zoo.gtrends <- function(x, ...) {
       ))
   
   ## next block: top searches
-  schidx <- grep("Top searches", headers)
+  start <- max(start) + 1
+  start <- seq(start, start + (nkw - 1))
+  
   schlist <-
-    lapply(schidx, function(i)
+    lapply(start, function(i)
       read.csv(
         textConnection(strsplit(vec[i], "\\\n")[[1]]),
         skip = 1,
@@ -506,15 +572,18 @@ as.zoo.gtrends <- function(x, ...) {
       ))
   
   ## Set columns names
-  schlist <- lapply(1:length(schidx), function(i) {
-    names(schlist[[i]]) = c(headers[schidx][i], "Hits")
-    schlist[[i]]
-  })
-  
+  if(length(start) != 0){
+    schlist <- lapply(1:length(start), function(i) {
+      names(schlist[[i]]) = c(headers[start][i], "Hits")
+      schlist[[i]]
+    })
+  }
   
   ## nex block: rising searches
-  risidx <- grep("Rising searches", headers)
-  rislist <- lapply(risidx, function(i) {
+  start <- max(start) + 1
+  start <- seq(start, start + (nkw - 1))
+  
+  rislist <- lapply(start, function(i) {
     ## broken by design: not a csv when a field can be "+1,900%" with a comma as
     ## a decimal separator -- so subst out the first comma into a semicolon
     tt <- sub(",", ";", strsplit(vec[i], "\\\n")[[1]])
@@ -540,6 +609,10 @@ as.zoo.gtrends <- function(x, ...) {
     rising = rislist,
     headers = headers
   )
+  
+  # if data was returned monthly, it will not be possible to plot maps
+  res[lapply(res, length) ==0]  <- NA
+  
   class(res) <- "gtrends"
   return(res)
 }
