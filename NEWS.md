@@ -1,4 +1,16 @@
-# grtrends 1.3.2 (unreleased)
+# gtrendsR 1.3.3
+
+- A ggplot2 object can now be returned for further customization. `plot(gtrends("NHL")) + ggtitle("NHL trend") + theme(legend.position="none")`
+
+- Support for hourly and daily data (#67). For example, it is now possible to have hourly data for the last seven days with `gtrends("nhl", geo = "CA", res = "7d")`. Use `?gtrends` for more information about the time resolution supported by the package.
+
+- Support for categorties (#46). Ex.: `gtrends("NHL", geo = "US", cat = "0-20")` will search only in the *sport* category.
+
+- Some countries (ex: Hong Kong) were missing from the list (#69).
+
+- Various typos and documentation work.
+
+# gtrendsR 1.3.2
 
 - Added support for sub-countries (#25). Ex.: `gtrends("NHL", geo = "CA-QC")` will return trends data for Québec province in Canada. The list of supported sub-countries can be obtained via `data(countries)`.
 
