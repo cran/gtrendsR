@@ -1,6 +1,20 @@
-# gtrendsR 1.3.4 (Unreleased)
+# gtrendsR 1.3.5
 
-- Fixing loging issue due to backdoor changes made by Google (#103). Thanks to @MrLoh for initial implementation and suggestions.
+- Added some missing country codes (#94). `data("countries")`.
+
+- Now able to specify for which Google products the request is performed using the `gprop` parameter (#112). Possible values are `froogle` for Google shopping, `new` for Google news, `youtube` for Youtube videos and `images` for Google images.
+
+- Now able to query using Google categories `?gtrends` (#89). 
+
+- Returned data is now tidy (#110). The `trend` object now contains `keyword`, `hits` and `location` header (`head(sport_trend$trend)`).
+
+- Fixing a bug where overriding `countries` variable was breaking package's functionalities (#109).
+
+- Correct default fallback for querying for google.user and google.password in gconnect (#121)
+
+# gtrendsR 1.3.4
+
+- Fixing login issue due to backend changes made by Google (#103). Thanks to @MrLoh for initial implementation and suggestions.
 
 - Fixing crash occuring when monthly data was returned (#81).
 

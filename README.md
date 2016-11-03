@@ -20,7 +20,7 @@ sport_trend <- gtrends(c("nhl", "nba", "nfl"))
 plot(sport_trend)        # data set also included in package
 ```
 
-![result of sport_trend query](https://raw.githubusercontent.com/PMassicotte/gtrendsR/master/inst/images/sport_trend_2015-11.png)
+![result of sport_trend query](https://raw.githubusercontent.com/PMassicotte/gtrendsR/master/inst/images/sport_trend_2016-08-05.png)
 
 It is also possible to plot geographical data using `googleVis` as follow.
 
@@ -37,7 +37,7 @@ connection here.
 
 ### Installation
 
-Since release 1.3.0, the package is on [CRAN](http://cran.r-project.org) and
+Since release 1.3.0, the package is on [CRAN](https://cran.r-project.org) and
 can be installed via
 
 ``` {.r}
