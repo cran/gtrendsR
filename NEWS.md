@@ -1,10 +1,24 @@
+# gtrendsR 1.4.0
+
+## Major change
+
+- Due to recent changes to Google Trends API, `gtrendsR` has been almost re-written form scratch. One big visible change is that signing into a Google account is no longer required to download data from Google Trends.
+
+## Bug fixes
+
+- Added missing all DMAs within the US (#146).
+
+- gtrendsR now correctly use the `hl` (local) parameter to retreive data (@antaldaniel).
+
+# - Better support for queries using non-ascii keywords (`gtrends("österreich")`).
+
 # gtrendsR 1.3.5
 
 - Added some missing country codes (#94). `data("countries")`.
 
 - Now able to specify for which Google products the request is performed using the `gprop` parameter (#112). Possible values are `froogle` for Google shopping, `new` for Google news, `youtube` for Youtube videos and `images` for Google images.
 
-- Now able to query using Google categories `?gtrends` (#89). 
+- Now able to query using Google categories `?gtrends` (#89).
 
 - Returned data is now tidy (#110). The `trend` object now contains `keyword`, `hits` and `location` header (`head(sport_trend$trend)`).
 
