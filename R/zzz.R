@@ -1,17 +1,16 @@
 check_time <- function(time) {
-
   stopifnot(is.character(time))
 
   fixed_format <- c(
-    "now 1-H",    # last hour
-    "now 4-H",    # last four hours
-    "now 1-d",    # last day
-    "now 7-d",    # last seven days
-    "today 1-m",  # past 30 days
-    "today 3-m",  # past 90 days
+    "now 1-H", # last hour
+    "now 4-H", # last four hours
+    "now 1-d", # last day
+    "now 7-d", # last seven days
+    "today 1-m", # past 30 days
+    "today 3-m", # past 90 days
     "today 12-m", # past 12 months
-    "today+5-y",  # last 5 years (default)
-    "all"        # Since begening of Google Trends (2004)
+    "today+5-y", # last 5 years (default)
+    "all" # Since begening of Google Trends (2004)
   )
 
   ## Return TRUE if one of the basic date formats is used
@@ -51,40 +50,38 @@ check_time <- function(time) {
   }
 
   return(TRUE)
-
 }
 
 
 get_widget <- function(comparison_item, category, gprop, hl) {
-
   token_payload <- list()
   token_payload$comparisonItem <- comparison_item
   token_payload$category <- category
   token_payload$property <- gprop
 
-  url <- URLencode(paste0("https://www.google.com/trends/api/explore?property=&req=",
-                          jsonlite::toJSON(token_payload, auto_unbox = TRUE),
-                          "&tz=300&hl=", hl)) ## The tz part is unclear but different
-                                              ## valid values do not change the result:
-                                              ## clarification needed.
+  url <- URLencode(paste0(
+    "https://www.google.com/trends/api/explore?property=&req=",
+    jsonlite::toJSON(token_payload, auto_unbox = TRUE),
+    "&tz=300&hl=", hl
+  )) ## The tz part is unclear but different
+  ## valid values do not change the result:
+  ## clarification needed.
 
   widget <- curl::curl_fetch_memory(url)
 
   stopifnot(widget$status_code == 200)
 
-  
+
   ## Fix encoding issue for keywords like österreich"
   temp <- rawToChar(widget$content)
   Encoding(temp) <- "UTF-8"
-  
+
   myjs <- jsonlite::fromJSON(substring(temp, first = 6))
 
   widget <- myjs$widgets
-
 }
 
 interest_over_time <- function(widget, comparison_item) {
-
   payload2 <- list()
   payload2$locale <- widget$request$locale[1]
   payload2$comparisonItem <- widget$request$comparisonItem[[1]]
@@ -134,9 +131,11 @@ interest_over_time <- function(widget, comparison_item) {
 
   df$temp <- NULL
 
-  df <- cbind(df,
-              comparison_item[rep(seq_len(nrow(comparison_item)), each = n), 1:2],
-              row.names = NULL)
+  df <- cbind(
+    df,
+    comparison_item[rep(seq_len(nrow(comparison_item)), each = n), 1:2],
+    row.names = NULL
+  )
 
   df$geo <- ifelse(df$geo == "", "world", df$geo)
   df$gprop <- ifelse(widget$request$requestOptions$property[1] == "", "web", widget$request$requestOptions$property[1])
@@ -152,47 +151,72 @@ interest_over_time <- function(widget, comparison_item) {
   }
 
   return(df)
-
 }
 
 
-interest_by_region <- function(widget, comparison_item) {
-
+interest_by_region <- function(widget, comparison_item, low_search_volume) {
   i <- which(grepl("Interest by", widget$title) == TRUE)
 
+  if (length(i) == 0) {
+    return(list(NULL))
+  }
+  
   ## Interest by region need to be retreived individually
 
+  # resolution <- sub(".* (\\w+)$", "\\1", widget$title[i])
+  # resolution[resolution == "subregion"] <- "region"
+  # resolution[resolution == "metro"] <- "dma"
+
+  # resolution <- c(resolution, rep(c("city", "dma"), each = length(resolution)))
+
+  ##
+  resolution <-
+    expand.grid(i, c(ifelse(
+      grepl("world", na.omit(widget$geo)), "country", "region"
+    ), "city", "dma"), stringsAsFactors = FALSE)
+
+  resolution <- unique(resolution)
+
+  i <- resolution$Var1
+  resolution <- resolution$Var2
+
+  ## If it is not US metro, then also search for "city"
+  # if (!all(grepl("dma", resolution))) {
+  #   resolution <- c(resolution, rep("city", length(resolution)))
+  # }
+  #
+
   ## If no country is specified, resolution should be "COUNTRY"
-  resolution <- ifelse("world" %in% widget$geo, "COUNTRY", "REGION")
+  # resolution[grepl("world", na.omit(widget$geo))] <- "country"
+  resolution <- toupper(resolution)
 
-  ## if searching within US metro, there is no region data. Return NULL.
-  if (any(grepl("region", widget$title))) {
-    region <- lapply(i, create_geo_payload, widget = widget, resolution = resolution)
-    region <- do.call(rbind, region)
-  } else {
-    region <- NULL
-  }
+  res <-
+    mapply(
+      create_geo_payload,
+      i,
+      resolution,
+      MoreArgs = list(widget = widget, low_search_volume = low_search_volume),
+      SIMPLIFY = FALSE
+    )
 
-  ## US top metro
-  dma <- lapply(i, create_geo_payload, widget = widget, resolution = "DMA")
-  dma <- do.call(rbind, dma)
+  ## Remove duplicated
+  ii <- !duplicated(res)
+  res <- res[ii]
+  resolution <- resolution[ii]
 
-  ## Top city
-  city <- lapply(i, create_geo_payload, widget = widget, resolution = "CITY")
-  city <- do.call(rbind, city)
+  ## Remove NA
+  ii <- !unlist(lapply(res, is.null))
+  res <- res[ii]
+  resolution <- resolution[ii]
 
-  res <- list(
-    region = region,
-    dma = dma,
-    city = city
-  )
+
+  res <- setNames(res, tolower(resolution))
 
   return(res)
 }
 
 
-create_geo_payload <- function(i, widget, resolution) {
-
+create_geo_payload <- function(i, widget, resolution, low_search_volume) {
   payload2 <- list()
   payload2$locale <- unique(na.omit(widget$request$locale))
   payload2$comparisonItem <- widget$request$comparisonItem[[i]]
@@ -200,7 +224,8 @@ create_geo_payload <- function(i, widget, resolution) {
   payload2$requestOptions$backend <- widget$request$requestOptions$backend[i]
   payload2$requestOptions$property <- widget$request$requestOptions$property[i]
   payload2$requestOptions$category <- widget$request$requestOptions$category[i]
-  payload2$geo <- as.list(widget$request$geo[i, , drop = FALSE])
+  payload2$geo <- as.list((widget$request$geo[i, , drop = FALSE]))
+  payload2$includeLowSearchVolumeGeos <- low_search_volume
 
 
   url <- paste0(
@@ -212,7 +237,9 @@ create_geo_payload <- function(i, widget, resolution) {
 
   res <- curl::curl_fetch_memory(URLencode(url))
 
-  stopifnot(res$status_code == 200)
+  if (res$status_code != 200) {
+    return(NULL)
+  }
 
   con <- textConnection(rawToChar(res$content))
   df <- read.csv(con, skip = 1, stringsAsFactors = FALSE)
@@ -236,15 +263,18 @@ create_geo_payload <- function(i, widget, resolution) {
 
   kw <- do.call(rbind, widget$request$comparisonItem[[i]]$complexKeywordsRestriction$keyword)
 
-  df <- cbind(df,
-              kw[rep(seq_len(nrow(kw)), each = n), 2],
-              row.names = NULL,
-              stringsAsFactors = FALSE)
+  df <- cbind(
+    df,
+    kw[rep(seq_len(nrow(kw)), each = n), 2],
+    row.names = NULL,
+    stringsAsFactors = FALSE
+  )
 
   df$temp <- NULL
-  df$geo <- widget$geo[i]
+  # df$geo <- widget$geo[i]
+  df$geo <- suppressWarnings(na.omit(unlist(widget$request$geo[i, ])))
 
-  df$geo <- ifelse(df$geo == "", "world", df$geo)
+  df$geo <- ifelse(is.null(df$geo), "world", df$geo)
   df$gprop <- ifelse(widget$request$requestOptions$property[i] == "", "web", widget$request$requestOptions$property[i])
 
   df$id <- NULL
@@ -253,4 +283,10 @@ create_geo_payload <- function(i, widget, resolution) {
   names(df) <- c("location", "hits", "keyword", "geo", "gprop")
 
   return(df)
+}
+
+## Remove NA from list
+na.omit.list <- function(y) {
+  return(y[!sapply(y, function(x)
+    all(is.na(x)))])
 }
