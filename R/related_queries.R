@@ -22,15 +22,16 @@ create_related_queries_payload <- function(i, widget) {
   payload2$requestOptions$category <- widget$request$requestOptions$category[[i]]
   payload2$language <- widget$request$language[[i]]
 
-  url <- paste0(
+  url <- URLencode(paste0(
     "https://www.google.com/trends/api/widgetdata/relatedsearches/csv?req=",
     jsonlite::toJSON(payload2, auto_unbox = T),
     "&token=", widget$token[i],
     "&tz=300&hl=en-US"
-  )
+  ))
 
-
-  res <- curl::curl_fetch_memory(URLencode(url))
+  url <- encode_keyword(url)
+  # VY. use the handler with proxy options.
+  res <- curl::curl_fetch_memory(URLencode(url), handle = .pkgenv[["cookie_handler"]])
 
   stopifnot(res$status_code == 200)
 

@@ -1,3 +1,21 @@
+# create environment in which to put cookie_handler
+.pkgenv <- new.env(parent=emptyenv())
+
+# alternative url is "http://apis.google.com/Cookies/OTZ"
+# function to create cookie_handler, which is necessary to run get_widget()
+get_api_cookies <- function(cookie_url) {
+  # create new handler
+  cookie_handler <- curl::new_handle()
+  # VY. set options for the proxy
+  curl::handle_setopt(handle=cookie_handler,.list=list(ssl_verifypeer=0L,proxyuserpwd=paste(.pkgenv[["handle_domain"]],"\\",.pkgenv[["handle_user"]],":",.pkgenv[["handle_password"]],sep=""),proxyauth=.pkgenv[["handle_proxyauth"]],proxy=.pkgenv[["handle_proxyhost"]],proxyport=.pkgenv[["handle_proxyport"]]))
+  # fetch API cookies
+  cookie_req <- curl::curl_fetch_memory(cookie_url, handle = cookie_handler)
+  curl::handle_cookies(cookie_handler)
+  # assign handler to .pkgenv environment
+  .pkgenv[["cookie_handler"]] <- cookie_handler
+  return(NULL)
+}
+
 check_time <- function(time) {
   stopifnot(is.character(time))
 
@@ -53,12 +71,14 @@ check_time <- function(time) {
 }
 
 
-get_widget <- function(comparison_item, category, gprop, hl) {
+get_widget <- function(comparison_item, category, gprop, hl, cookie_url) {
   token_payload <- list()
   token_payload$comparisonItem <- comparison_item
   token_payload$category <- category
   token_payload$property <- gprop
 
+  # token_payload$comparisonItem$keyword <- curl::curl_escape(token_payload$comparisonItem$keyword)
+  
   url <- URLencode(paste0(
     "https://www.google.com/trends/api/explore?property=&req=",
     jsonlite::toJSON(token_payload, auto_unbox = TRUE),
@@ -66,11 +86,15 @@ get_widget <- function(comparison_item, category, gprop, hl) {
   )) ## The tz part is unclear but different
   ## valid values do not change the result:
   ## clarification needed.
-
-  widget <- curl::curl_fetch_memory(url)
+  
+  url <- encode_keyword(url)
+  
+  # if cookie_handler hasn't been set up, get the requisite cookies from Google's API
+  if(!exists("cookie_handler", envir = .pkgenv)){ get_api_cookies(cookie_url) }
+  # get the tokens etc., using the URL and the cookie_handler
+  widget <- curl::curl_fetch_memory(url, handle = .pkgenv[["cookie_handler"]])
 
   stopifnot(widget$status_code == 200)
-
 
   ## Fix encoding issue for keywords like österreich"
   temp <- rawToChar(widget$content)
@@ -92,18 +116,20 @@ interest_over_time <- function(widget, comparison_item) {
   payload2$requestOptions$property <- widget$request$requestOptions$property[1]
 
 
-  url <- paste0(
+  url <- URLencode(paste0(
     "https://www.google.com/trends/api/widgetdata/multiline/csv?req=",
     jsonlite::toJSON(payload2, auto_unbox = T),
     "&token=", widget$token[1],
     "&tz=300"
-  )
+  ))
 
   # ****************************************************************************
   # Downoad the results
   # ****************************************************************************
-
-  res <- curl::curl_fetch_memory(URLencode(url))
+  url <- encode_keyword(url)
+  
+  # VY. use the handler with proxy options.
+  res <- curl::curl_fetch_memory(url, handle = .pkgenv[["cookie_handler"]])
 
   stopifnot(res$status_code == 200)
 
@@ -228,14 +254,16 @@ create_geo_payload <- function(i, widget, resolution, low_search_volume) {
   payload2$includeLowSearchVolumeGeos <- low_search_volume
 
 
-  url <- paste0(
+  url <- URLencode(paste0(
     "https://www.google.com/trends/api/widgetdata/comparedgeo/csv?req=",
     jsonlite::toJSON(payload2, auto_unbox = T),
     "&token=", widget$token[i],
     "&tz=300&hl=en-US"
-  )
+  ))
 
-  res <- curl::curl_fetch_memory(URLencode(url))
+  url <- encode_keyword(url)
+  # VY. use the handler with proxy options.
+  res <- curl::curl_fetch_memory(url, handle = .pkgenv[["cookie_handler"]])
 
   if (res$status_code != 200) {
     return(NULL)
@@ -289,4 +317,9 @@ create_geo_payload <- function(i, widget, resolution, low_search_volume) {
 na.omit.list <- function(y) {
   return(y[!sapply(y, function(x)
     all(is.na(x)))])
+}
+
+## Replace special characters in keywords like P&500 -> P%26500 
+encode_keyword <- function(url) {
+  gsub("(?:\\G(?!^)|\\[\\s*)[^][\\s]*\\K\\&(?!])(?=[^][]*])", "%26", url, perl = TRUE)
 }

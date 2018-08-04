@@ -1,3 +1,13 @@
+# gtrendsR 1.4.2
+
+- gtrendsR can now be used behind a proxy, see `setHandleParameters()` (#245) @VictorYammouni
+
+- Fixes breaking changes introduced by Google Trends (#273, #274)
+
+- Now able to search with "&" character (#267). `gtrends("A&W", geo = "CA")`
+
+- gtrendsR now depends on R >= 3.2.0 (#264)
+
 # gtrendsR 1.4.1
 
 - It is now possible to use DMA (`gtrends(keyword="obama",geo="US-AL-630")`) (#238).
