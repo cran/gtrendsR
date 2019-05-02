@@ -1,14 +1,14 @@
-related_topics <- function(widget, comparison_item, hl) {
+related_topics <- function(widget, comparison_item, hl,tz) {
   i <- which(grepl("topics", widget$title) == TRUE)
 
-  res <- lapply(i, create_related_topics_payload, widget = widget, hl = hl)
+  res <- lapply(i, create_related_topics_payload, widget = widget, hl = hl,tz=tz)
   res <- do.call(rbind, res)
 
   return(res)
 }
 
 
-create_related_topics_payload <- function(i, widget, hl) {
+create_related_topics_payload <- function(i, widget, hl,tz) {
   payload2 <- list()
   payload2$restriction$geo <- as.list(widget$request$restriction$geo[i, , drop = FALSE])
   payload2$restriction$time <- widget$request$restriction$time[[i]]
@@ -27,16 +27,18 @@ create_related_topics_payload <- function(i, widget, hl) {
     # "https://www.google.com/trends/api/widgetdata/relatedsearches/csv?req=",
     jsonlite::toJSON(payload2, auto_unbox = T),
     "&token=", widget$token[i],
-    "&tz=300&hl=", hl
+    "&tz=",tz,"&hl=", hl
   ))
 
   url <- encode_keyword(url)
   # VY. use the handler with proxy options.
   res <- curl::curl_fetch_memory(url, handle = .pkgenv[["cookie_handler"]])
 
-
-  stopifnot(res$status_code == 200)
-
+  # Something went wrong
+  if (res$status_code != 200) {
+    stop("Status code was not 200. Returned status code:", res$status_code)
+  }
+  
   res <- readLines(textConnection(rawToChar(res$content)))
 
   start_top <- which(grepl("TOP", res))

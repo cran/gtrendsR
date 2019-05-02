@@ -1,3 +1,19 @@
+# gtrendsR 1.4.3
+
+- Added more options to specify time interval of the search (#289). @JBleher
+
+- Fixed dangling time zone parameters (#290). @JBleher
+
+- Fixed also issues with different results when requests were issued from different time zones and different locale settings.
+
+- Download multiple time ranges for direct comparison.
+
+- Now also an option to only download interest over time is added.
+
+- Showing the returned status code when it is failing (i.e. not 200) (#304).
+
+- Bug fix keyword encoding when there are multiple keywords with '&'. (#300, #301) @ThiesDS
+
 # gtrendsR 1.4.2
 
 - gtrendsR can now be used behind a proxy, see `setHandleParameters()` (#245) @VictorYammouni
@@ -7,6 +23,8 @@
 - Now able to search with "&" character (#267). `gtrends("A&W", geo = "CA")`
 
 - gtrendsR now depends on R >= 3.2.0 (#264)
+
+- Fixes error when mixing topic and search terms in query (#284) @mamut86
 
 # gtrendsR 1.4.1
 

@@ -1,14 +1,14 @@
-related_queries <- function(widget, comparison_item) {
+related_queries <- function(widget, comparison_item,tz) {
   i <- which(grepl("queries", widget$title) == TRUE)
 
-  res <- lapply(i, create_related_queries_payload, widget = widget)
+  res <- lapply(i, create_related_queries_payload, widget = widget,tz=tz)
   res <- do.call(rbind, res)
 
   return(res)
 }
 
 
-create_related_queries_payload <- function(i, widget) {
+create_related_queries_payload <- function(i, widget,tz) {
   payload2 <- list()
   payload2$restriction$geo <- as.list(widget$request$restriction$geo[i, , drop = FALSE])
   payload2$restriction$time <- widget$request$restriction$time[[i]]
@@ -26,15 +26,18 @@ create_related_queries_payload <- function(i, widget) {
     "https://www.google.com/trends/api/widgetdata/relatedsearches/csv?req=",
     jsonlite::toJSON(payload2, auto_unbox = T),
     "&token=", widget$token[i],
-    "&tz=300&hl=en-US"
+    "&tz=",tz,"&hl=en-US"
   ))
 
   url <- encode_keyword(url)
   # VY. use the handler with proxy options.
   res <- curl::curl_fetch_memory(URLencode(url), handle = .pkgenv[["cookie_handler"]])
 
-  stopifnot(res$status_code == 200)
-
+  # Something went wrong
+  if (res$status_code != 200) {
+    stop("Status code was not 200. Returned status code:", res$status_code)
+  }
+  
   res <- readLines(textConnection(rawToChar(res$content)))
 
   ## Not enough data

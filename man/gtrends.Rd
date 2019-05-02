@@ -7,7 +7,8 @@
 gtrends(keyword = NA, geo = "", time = "today+5-y",
   gprop = c("web", "news", "images", "froogle", "youtube"),
   category = 0, hl = "en-US", low_search_volume = FALSE,
-  cookie_url = "http://trends.google.com/Cookies/NID")
+  cookie_url = "http://trends.google.com/Cookies/NID", tz = 0,
+  onlyInterest = FALSE)
 }
 \arguments{
 \item{keyword}{A character vector with the actual Google Trends query
@@ -44,6 +45,13 @@ the data returned by related topics.}
 
 \item{cookie_url}{A string specifying the URL from which to obtain cookies.
 Default should work in general; should only be changed by advanced users.}
+
+\item{tz}{A number specifying the minutes the returned dates should be offset to UTC. 
+Note the parameter 'time' above is specified in UTC. 
+E.g. choosing "time=2018-01-01T01 2018-01-01T03" and "tz=-120" will yield data between 2018-01-01T03 and 2018-01-01T05, 
+i.e. data specified to be in UTC+2.}
+
+\item{onlyInterest}{If you only want the interest over time set it to TRUE.}
 }
 \value{
 An object of class \sQuote{gtrends} (basically a list of data
