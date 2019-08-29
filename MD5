@@ -1,6 +1,6 @@
-8d3b45635afbf9e25da336055f4aa6bb *DESCRIPTION
+1a8b1ddb93e0231fea564eee674ab13d *DESCRIPTION
 371ff0da99f13632a7441abe6a39ce98 *NAMESPACE
-73330a80f2a4d454e10fd011e1254180 *NEWS.md
+4b6fe9c89d194c01da8c873aa6daf40c *NEWS.md
 fbc074686dc15b3dbe058ff932fb37f6 *R/categories.R
 abc73948f4e51d93e09f6a8d19ede32e *R/countries.R
 b4f713d9a8ac0524ad196b75d17d73c3 *R/gtrends.R
@@ -8,7 +8,7 @@ ffccf09ec36384d6539b719c5136ca3b *R/related_queries.R
 7195f3a8ffab482c1aaeb63367b10ada *R/related_topics.R
 264754d95145411a6524dec0518de8da *R/setHandleParameters.R
 916f2a93a984fc896b703542153ffd59 *R/sysdata.rda
-47fb6d0cf1cd9cfd24d7abce08e71bdf *R/zzz.R
+c0e9ce7cf1de8ab78904a662571b5771 *R/zzz.R
 7648af23093ee6db34030df111553e23 *README.md
 f0a970610ae761402455d18cc647f60b *data/categories.rda
 e7115efdbebaa678afff63fb8b2967fe *data/countries.rda

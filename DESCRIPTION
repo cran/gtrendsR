@@ -1,8 +1,7 @@
 Package: gtrendsR
 Type: Package
 Title: Perform and Display Google Trends Queries
-Version: 1.4.3
-Date: 2019-05-02
+Version: 1.4.4
 Authors@R: c(person("Philippe", 
          "Massicotte", 
          email = "pmassicotte@hotmail.com",
@@ -24,9 +23,9 @@ RoxygenNote: 6.1.1
 Suggests: knitr, rmarkdown
 Encoding: UTF-8
 NeedsCompilation: no
-Packaged: 2019-05-02 14:42:58 UTC; pmassicotte
+Packaged: 2019-08-29 17:27:54 UTC; pmassicotte
 Author: Philippe Massicotte [aut, cre],
   Dirk Eddelbuettel [aut]
 Maintainer: Philippe Massicotte <pmassicotte@hotmail.com>
 Repository: CRAN
-Date/Publication: 2019-05-02 14:50:03 UTC
+Date/Publication: 2019-08-29 17:50:02 UTC
