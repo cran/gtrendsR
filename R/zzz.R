@@ -47,8 +47,8 @@ check_time <- function(time_ranges) {
     }
     
     if(!grepl("T",time[1])){
-      start_date <- as.POSIXct(anytime::anydate(time[1]))
-      end_date <- as.POSIXct(anytime::anydate(time[2]))
+      start_date <- as.POSIXct(format(anytime::anydate(time[1],tz="UTC"),tz="UTC"),tz="UTC")
+      end_date <- as.POSIXct(format(anytime::anydate(time[2],tz="UTC"),tz="UTC"),tz="UTC")
     }else{
       start_date <- anytime::anytime(time[1])
       end_date <- anytime::anytime(time[2])
@@ -64,7 +64,7 @@ check_time <- function(time_ranges) {
     }
     
     ## Start date can't be before 2004-01-01
-    if (start_date < as.POSIXct("2004-01-01")) {
+    if (start_date < as.POSIXct("2004-01-01",tz="UTC")) {
       return(FALSE)
     }
     
@@ -83,16 +83,12 @@ get_widget <- function(comparison_item, category, gprop, hl, cookie_url, tz) {
   token_payload$comparisonItem <- comparison_item
   token_payload$category <- category
   token_payload$property <- gprop
-
-  # token_payload$comparisonItem$keyword <- curl::curl_escape(token_payload$comparisonItem$keyword)
   
-  url <- URLencode(paste0(
-    "https://www.google.com/trends/api/explore?property=&req=",
-    jsonlite::toJSON(token_payload, auto_unbox = TRUE),
-    "&tz=",tz,"&hl=", hl
-  ))
+  url <- paste0(URLencode(paste0("https://trends.google.com/trends/api/explore?hl=",hl,"&tz=",tz,"&req=")), 
+                encode_payload(paste0(jsonlite::toJSON(token_payload, auto_unbox = TRUE)),reserved = TRUE,repeated=TRUE),
+                URLencode(paste0("&tz=",tz)))
   
-  url <- encode_keyword(url)
+  #url <- encode_keyword(url)
   
   # if cookie_handler hasn't been set up, get the requisite cookies from Google's API
   if(!exists("cookie_handler", envir = .pkgenv)){ get_api_cookies(cookie_url) }
@@ -120,57 +116,89 @@ interest_over_time <- function(widget, comparison_item,tz) {
   # vs.
   # topicKeys <- c("Assassins Creed", "Assassins Creed Brotherhood", "Assassins Creed Rogue")
   # gtrends(topicKeys, time = "all")
-  if((length(widget$request$comparisonItem[[2]]$time)!=1)&
-     (length(unique(widget$request$comparisonItem[[2]]$time))!=1)&
-     (!is.null(widget$request$comparisonItem[[2]]) )
-     ){
-    payload2$resolution <- widget$request$resolution[1]
-    payload2$locale <- widget$request$locale[2]
-    payload2$comparisonItem <- widget$request$comparisonItem[[2]]
-    payload2$comparisonItem$geo <- widget$request$comparisonItem[[1]]$geo
-    payload2$requestOptions$property <- widget$request$requestOptions$property[2]
-    payload2$requestOptions$backend <- widget$request$requestOptions$backend[2]
-    payload2$requestOptions$category <- widget$request$requestOptions$category[2]
-    token_payload2 <- widget$token[which(widget$id == "TIMESERIES")]
-
-    url <- URLencode(paste0(
-      "https://www.google.com/trends/api/widgetdata/multirange/csv?req=",
-      jsonlite::toJSON(payload2, auto_unbox = T,null="list"),
-      "&token=", token_payload2,
-      "&tz=",tz
-    ))
+  
+  # the following conditional statments are necessary when no keyword is supplied but
+  # a search for a category is called for
+  if(is.null(unlist(widget$request$comparisonItem))){
+    onlyCategory <- TRUE
+  }else if(!any(grepl("keyword",names(unlist(widget$request$comparisonItem))))){
+    onlyCategory <- TRUE
   }else{
-    if(!is.na(widget$request$locale[1])|(length(unique(unlist(widget$request$comparisonItem[[1]]$geo)))>1)){
-      payload2$locale <- widget$request$locale[1]
-      payload2$comparisonItem <- widget$request$comparisonItem[[1]]
-      payload2$resolution <- widget$request$resolution[1]
-      payload2$requestOptions$category <- widget$request$requestOptions$category[1]
-      payload2$requestOptions$backend <- widget$request$requestOptions$backend[1]
-      payload2$time <- widget$request$time[1]
-      payload2$requestOptions$property <- widget$request$requestOptions$property[1]
-      token_payload2 <- widget$token[1]
-    } else {
-      payload2$locale <- widget$request$locale[2]
-      payload2$comparisonItem <- widget$request$comparisonItem[[1]]
-      payload2$resolution <- widget$request$resolution[2]
-      payload2$requestOptions$category <- widget$request$requestOptions$category[2]
-      payload2$requestOptions$backend <- widget$request$requestOptions$backend[2]
-      payload2$time <- widget$request$time[2]
+    onlyCategory <- FALSE
+  }
+  
+  if(onlyCategory){
+    
+    
+    payload2$locale <- widget$request$locale[1]
+    payload2$comparisonItem <- widget$request$comparisonItem[[1]]
+    payload2$resolution <- widget$request$resolution[1]
+    payload2$requestOptions$category <- widget$request$requestOptions$category[1]
+    payload2$requestOptions$backend <- widget$request$requestOptions$backend[1]
+    payload2$time <- widget$request$time[1]
+    payload2$requestOptions$property <- widget$request$requestOptions$property[1]
+    token_payload2 <- widget$token[1]
+    url <- paste0(URLencode("https://www.google.com/trends/api/widgetdata/multiline/csv?req="),
+                  URLencode(jsonlite::toJSON(payload2, auto_unbox = T,null="list"),reserved = TRUE),
+                  URLencode(paste0("&token=", token_payload2,"&tz=",tz)))
+  }else{
+    Test.For.Multiple.Timeframes <- (length(widget$request$comparisonItem[[2]]$time)!=1)&
+      (length(unique(widget$request$comparisonItem[[2]]$time))!=1)&
+      (!is.null(widget$request$comparisonItem[[2]]) )
+  
+  
+    if(Test.For.Multiple.Timeframes){
+      payload2$time <- widget$request$time[head(which(!is.na(widget$request$time)),1)]
+      payload2$time <- gsub(" ","+",payload2$time)
+      payload2$resolution <- widget$request$resolution[head(which(!is.na(widget$request$resolution)),1)]
+      payload2$locale <- widget$request$locale[head(which(!is.na(widget$request$locale)),1)]
+      payload2$comparisonItem <- widget$request$comparisonItem[[2]]
+      payload2$comparisonItem$geo <- widget$request$comparisonItem[[2]]$geo
       payload2$requestOptions$property <- widget$request$requestOptions$property[2]
-      token_payload2 <- widget$token[2]
+      payload2$requestOptions$backend <- widget$request$requestOptions$backend[2]
+      payload2$requestOptions$category <- widget$request$requestOptions$category[2]
+      token_payload2 <- widget$token[which(widget$id == "TIMESERIES")]
+  
+      
+      url <- paste0(URLencode("https://trends.google.com/trends/api/widgetdata/multirange/csv?req="),
+                    encode_payload(jsonlite::toJSON(payload2, auto_unbox = T,null="list"),reserved = TRUE),
+                    URLencode(paste0("&token=", token_payload2,"&tz=",tz)))
+      # url <- URLencode(paste0(
+      #   "https://www.google.com/trends/api/widgetdata/multirange/csv?req=",
+      #   jsonlite::toJSON(payload2, auto_unbox = T,null="list"),
+      #   "&token=", token_payload2,
+      #   "&tz=",tz
+      # ))
+    }else{
+      if(!is.na(widget$request$locale[1])|(length(unique(unlist(widget$request$comparisonItem[[1]]$geo)))>1)){
+        payload2$locale <- widget$request$locale[1]
+        payload2$comparisonItem <- widget$request$comparisonItem[[1]]
+        payload2$resolution <- widget$request$resolution[1]
+        payload2$requestOptions$category <- widget$request$requestOptions$category[1]
+        payload2$requestOptions$backend <- widget$request$requestOptions$backend[1]
+        payload2$time <- widget$request$time[1]
+        payload2$requestOptions$property <- widget$request$requestOptions$property[1]
+        token_payload2 <- widget$token[1]
+      } else {
+        payload2$locale <- widget$request$locale[2]
+        payload2$comparisonItem <- widget$request$comparisonItem[[1]]
+        payload2$resolution <- widget$request$resolution[2]
+        payload2$requestOptions$category <- widget$request$requestOptions$category[2]
+        payload2$requestOptions$backend <- widget$request$requestOptions$backend[2]
+        payload2$time <- widget$request$time[2]
+        payload2$requestOptions$property <- widget$request$requestOptions$property[2]
+        token_payload2 <- widget$token[2]
+      }
+      url <- paste0(URLencode("https://www.google.com/trends/api/widgetdata/multiline/csv?req="),
+                    URLencode(jsonlite::toJSON(payload2, auto_unbox = T,null="list"),reserved = TRUE),
+                    URLencode(paste0("&token=", token_payload2,"&tz=",tz)))
     }
-    url <- URLencode(paste0(
-      "https://www.google.com/trends/api/widgetdata/multiline/csv?req=",
-      jsonlite::toJSON(payload2, auto_unbox = T),
-      "&token=", token_payload2,
-      "&tz=",tz
-    ))
   }
 
   # ****************************************************************************
   # Downoad the results
   # ****************************************************************************
-  url <- encode_keyword(url)
+  #url <- encode_keyword(url)
   
   # VY. use the handler with proxy options.
   res <- curl::curl_fetch_memory(url, handle = .pkgenv[["cookie_handler"]])
@@ -191,36 +219,110 @@ interest_over_time <- function(widget, comparison_item,tz) {
     return(NULL) ## No data
   }
   
-  if((length(widget$request$comparisonItem[[2]]$time)==1)|
-     (length(unique(widget$request$comparisonItem[[2]]$time))==1)|
-     (is.null(widget$request$comparisonItem[[2]]) )
-     ){
+  # Redo the substitution of + for a nice data frame
+  comparison_item$keyword <- sapply(comparison_item$keyword,function(x) gsub("\\+"," ",x))
+  comparison_item$keyword <- sapply(comparison_item$keyword,function(x) gsub("%2B","+",x))
+  
+  if(!onlyCategory){ 
+    # This conditional statment is necessary when no keyword is supplied but
+    # a search for a category is called for
+  
+    
+    if((length(widget$request$comparisonItem[[2]]$time)==1)|
+       (length(unique(widget$request$comparisonItem[[2]]$time))==1)|
+       (is.null(widget$request$comparisonItem[[2]]) )
+       ){
+      n <- nrow(df) # used to reshape the data
+      
+      df <- reshape(
+        df,
+        varying = names(df)[2:ncol(df)],
+        v.names = "hits",
+        direction = "long",
+        timevar = "temp",
+        times = names(df)[2:ncol(df)]
+      )
+      
+      df$temp <- NULL
+      
+      df <- cbind(
+        df,
+        comparison_item[rep(seq_len(nrow(comparison_item)), each = n), 1:3],
+        row.names = NULL
+      )
+      
+      df$geo <- ifelse(df$geo == "", "world", df$geo)
+      df$gprop <- ifelse(widget$request$requestOptions$property[1] == "", "web", widget$request$requestOptions$property[1])
+      df$category <- widget$request$requestOptions$category[1]
+      names(df)[1] <- "date"
+      df$id <- NULL
+      
+      # Format the returned date
+      if(all(grepl("^[0-9]{4}-[0-9]{2}-[0-9]{2}$",df$date))){
+        df$date <- as.POSIXct(df$date,format="%Y-%m-%d",tz=paste0("GMT",ifelse(tz>=0,"+","-"),(abs(tz)/60)),asUTC=T)
+      }else if(all(grepl("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}$",df$date))){
+        df$date <- as.POSIXct(df$date,format="%Y-%m-%dT%H",tz=paste0("GMT",ifelse(tz>=0,"+","-"),(abs(tz)/60)),asUTC=T)
+      }else if(all(grepl("^[0-9]{4}-[0-9]{2}$",df$date))){
+        df$date <- df$date <- as.POSIXct(paste0(df$date,"-01"), 
+                                         format = "%Y-%m-%d", tz = paste0("GMT", ifelse(tz >= 0, "+", "-"), 
+                                                     (abs(tz)/60)), asUTC = T)
+      }else{
+        df$date <- gsub("^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}).*$","\\1",df$date)
+        df$date <- as.POSIXct(df$date,format="%Y-%m-%dT%H:%M:%S",tz=paste0("GMT",ifelse(tz>=0,"+","-"),(abs(tz)/60)),asUTC=T)
+      }
+  
+    }else{
+      n <- nrow(df) # used to reshape the data
+      kw <- payload2$comparisonItem$complexKeywordsRestriction[[1]][[1]]$value
+      kw <- gsub("[[:blank:]-]",".",kw)
+      dates <- df[,which(!grepl(kw,names(df)))]
+      
+      if(all(sapply(lapply(dates,function(x) grepl("^[0-9]{4}-[0-9]{2}-[0-9]{2}$",x)),function(y) all(y)))){
+        dates <- data.frame(lapply(dates,
+                                   function(x) as.POSIXct(x,
+                                                  format="%Y-%m-%d",
+                                                  tz=paste0("GMT",ifelse(tz>=0,"+","-"),(abs(tz)/60)))))
+      }else if(all(sapply(lapply(dates,function(x) grepl("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}$",x)),function(y) all(y)))){
+        dates <- data.frame(lapply(dates,
+                                   function(x) as.POSIXct(x,
+                                                          format="%Y-%m-%dT%H",
+                                                          tz=paste0("GMT",ifelse(tz>=0,"+","-"),(abs(tz)/60)))))
+      }else{
+        dates <- data.frame(lapply(dates,
+                                   function(x)
+                                     gsub("^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}).*$","\\1",x)))
+        dates <- data.frame(lapply(dates,
+                                   function(x) as.POSIXct(x,
+                                                format="%Y-%m-%dT%H:%M:%S",
+                                                tz=paste0("GMT",ifelse(tz>=0,"+","-"),(abs(tz)/60)))))
+      }
+      
+      # dates <- data.frame(lapply(dates,function(x) anytime::anytime(x,tz=paste0("GMT",ifelse(tz>=0,"+","-"),(abs(tz)/60)),asUTC=T)))
+      
+      hits <- df[,which(grepl(kw,names(df)))]
+      
+      for(jj in 1:NCOL(dates)){
+        df_tmp <- data.frame(dates[jj],hits[jj])
+        df_tmp2 <- comparison_item[rep(jj,n), 1:3]
+        
+        df_tmp2[,1] <- ifelse(df_tmp2[,1] == "", "world", df_tmp2[,1])
+        df_tmp2[,3] <- ifelse(widget$request$requestOptions$property[1] == "", "web", widget$request$requestOptions$property[1])
+        df_tmp2[,4] <- widget$request$requestOptions$category[1]
+        if(jj==1){
+          df_res <- cbind(df_tmp,df_tmp2)
+          names(df_res) <- c("date","hits","geo","time","gprop","category")
+        }else{
+          df_tmp3 <- cbind(df_tmp,df_tmp2)
+          names(df_tmp3) <- c("date","hits","geo","time","gprop","category")
+          df_res <- rbind(df_res,df_tmp3)
+        }
+      }
+      df <- df_res
+    }
+  }else{
     n <- nrow(df) # used to reshape the data
+    names(df) <- c("date","hits")
     
-    df <- reshape(
-      df,
-      varying = names(df)[2:ncol(df)],
-      v.names = "hits",
-      direction = "long",
-      timevar = "temp",
-      times = names(df)[2:ncol(df)]
-    )
-    
-    df$temp <- NULL
-    
-    df <- cbind(
-      df,
-      comparison_item[rep(seq_len(nrow(comparison_item)), each = n), 1:3],
-      row.names = NULL
-    )
-    
-    df$geo <- ifelse(df$geo == "", "world", df$geo)
-    df$gprop <- ifelse(widget$request$requestOptions$property[1] == "", "web", widget$request$requestOptions$property[1])
-    df$category <- widget$request$requestOptions$category[1]
-    names(df)[1] <- "date"
-    df$id <- NULL
-    
-    # Format the returned date
     if(all(grepl("^[0-9]{4}-[0-9]{2}-[0-9]{2}$",df$date))){
       df$date <- as.POSIXct(df$date,format="%Y-%m-%d",tz=paste0("GMT",ifelse(tz>=0,"+","-"),(abs(tz)/60)),asUTC=T)
     }else if(all(grepl("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}$",df$date))){
@@ -228,59 +330,16 @@ interest_over_time <- function(widget, comparison_item,tz) {
     }else if(all(grepl("^[0-9]{4}-[0-9]{2}$",df$date))){
       df$date <- df$date <- as.POSIXct(paste0(df$date,"-01"), 
                                        format = "%Y-%m-%d", tz = paste0("GMT", ifelse(tz >= 0, "+", "-"), 
-                                                   (abs(tz)/60)), asUTC = T)
-    }else{
-      df$date <- gsub("^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}).*$","\\1",df$date)
-      df$date <- as.POSIXct(df$date,format="%Y-%m-%dT%H:%M:%S",tz=paste0("GMT",ifelse(tz>=0,"+","-"),(abs(tz)/60)),asUTC=T)
-    }
-
-  }else{
-    n <- nrow(df) # used to reshape the data
-    kw <- payload2$comparisonItem$complexKeywordsRestriction[[1]][[1]]$value
-    kw <- gsub("[[:blank:]-]",".",kw)
-    dates <- df[,which(!grepl(kw,names(df)))]
-    
-    if(all(sapply(lapply(dates,function(x) grepl("^[0-9]{4}-[0-9]{2}-[0-9]{2}$",x)),function(y) all(y)))){
-      dates <- data.frame(lapply(dates,
-                                 function(x) as.POSIXct(x,
-                                                format="%Y-%m-%d",
-                                                tz=paste0("GMT",ifelse(tz>=0,"+","-"),(abs(tz)/60)))))
-    }else if(all(sapply(lapply(dates,function(x) grepl("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}$",x)),function(y) all(y)))){
-      dates <- data.frame(lapply(dates,
-                                 function(x) as.POSIXct(x,
-                                                        format="%Y-%m-%dT%H",
-                                                        tz=paste0("GMT",ifelse(tz>=0,"+","-"),(abs(tz)/60)))))
-    }else{
-      dates <- data.frame(lapply(dates,
-                                 function(x)
-                                   gsub("^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}).*$","\\1",x)))
-      dates <- data.frame(lapply(dates,
-                                 function(x) as.POSIXct(x,
-                                              format="%Y-%m-%dT%H:%M:%S",
-                                              tz=paste0("GMT",ifelse(tz>=0,"+","-"),(abs(tz)/60)))))
+                                                                        (abs(tz)/60)), asUTC = T)
     }
     
-    # dates <- data.frame(lapply(dates,function(x) anytime::anytime(x,tz=paste0("GMT",ifelse(tz>=0,"+","-"),(abs(tz)/60)),asUTC=T)))
     
-    hits <- df[,which(grepl(kw,names(df)))]
+    comparison_item[,"geo"] <- ifelse(comparison_item[,"geo"] == "", "world", comparison_item[,"geo"])
+    comparison_item[,"gprop"] <- ifelse(widget$request$requestOptions$property[1] == 
+             "", "web", widget$request$requestOptions$property[1])
+    comparison_item[,"category"] <- widget$request$requestOptions$category[1]
+    df <- cbind(df,comparison_item[rep(1,n), 2:5])
     
-    for(jj in 1:NCOL(dates)){
-      df_tmp <- data.frame(dates[jj],hits[jj])
-      df_tmp2 <- comparison_item[rep(jj,n), 1:3]
-      
-      df_tmp2[,1] <- ifelse(df_tmp2[,1] == "", "world", df_tmp2[,1])
-      df_tmp2[,3] <- ifelse(widget$request$requestOptions$property[1] == "", "web", widget$request$requestOptions$property[1])
-      df_tmp2[,4] <- widget$request$requestOptions$category[1]
-      if(jj==1){
-        df_res <- cbind(df_tmp,df_tmp2)
-        names(df_res) <- c("date","hits","geo","time","gprop","category")
-      }else{
-        df_tmp3 <- cbind(df_tmp,df_tmp2)
-        names(df_tmp3) <- c("date","hits","geo","time","gprop","category")
-        df_res <- rbind(df_res,df_tmp3)
-      }
-    }
-    df <- df_res
   }
 
   return(df)
@@ -361,14 +420,18 @@ create_geo_payload <- function(i, widget, resolution, low_search_volume,tz) {
   payload2$includeLowSearchVolumeGeos <- low_search_volume
 
 
-  url <- URLencode(paste0(
-    "https://www.google.com/trends/api/widgetdata/comparedgeo/csv?req=",
-    jsonlite::toJSON(payload2, auto_unbox = T,null="list"),
-    "&token=", widget$token[i],
-    "&tz=",tz,"&hl=en-US"
-  ))
+  url <- paste0(URLencode("https://www.google.com/trends/api/widgetdata/comparedgeo/csv?req="),
+                URLencode(jsonlite::toJSON(payload2, auto_unbox = T,null="list"),reserved = TRUE),
+                URLencode(paste0("&token=",widget$token[i],"&tz=",tz,"&hl=en-US")))
+  
+  # url <- URLencode(paste0(
+  #   "https://www.google.com/trends/api/widgetdata/comparedgeo/csv?req=",
+  #   jsonlite::toJSON(payload2, auto_unbox = T,null="list"),
+  #   "&token=", widget$token[i],
+  #   "&tz=",tz,"&hl=en-US"
+  # ))
 
-  url <- encode_keyword(url)
+  # url <- encode_keyword(url)
   # VY. use the handler with proxy options.
   res <- curl::curl_fetch_memory(url, handle = .pkgenv[["cookie_handler"]])
 
@@ -394,9 +457,15 @@ create_geo_payload <- function(i, widget, resolution, low_search_volume,tz) {
     timevar = "temp",
     times = names(df)[2:ncol(df)]
   )
+  if(length(widget$request$comparisonItem[[i]]$complexKeywordsRestriction$operator)==0){
+    kw <- do.call(rbind, widget$request$comparisonItem[[i]]$complexKeywordsRestriction$keyword)
+  }else{
+    value <- paste(widget$request$comparisonItem[[i]]$complexKeywordsRestriction$keyword[[1]]$value,collapse=" + ")
+    type <- unique(widget$request$comparisonItem[[i]]$complexKeywordsRestriction$keyword[[1]]$type)
+    kw <- data.frame(type=type,value=value)
+  }
 
-
-  kw <- do.call(rbind, widget$request$comparisonItem[[i]]$complexKeywordsRestriction$keyword)
+  #kw <- do.call(rbind, widget$request$comparisonItem[[i]]$complexKeywordsRestriction$keyword)
 
   df <- cbind(
     df,
@@ -440,6 +509,20 @@ map_tz2min <- function(timezone){
   round((unclass(as.POSIXct(format(Sys.time(),"%Y-%m-%d %H:%M:%S",tz="UTC")))-unclass(as.POSIXct(format(Sys.time(),"%Y-%m-%d %H:%M:%S",tz=timezone))))/60)
 }
 
-map_min2tz <- function(min){
-    
+encode_payload <- function (URL, reserved = FALSE, repeated = FALSE){
+# This is a adjusted URLencode function.
+# The , and + are removed from the reserved characters list
+  if (!repeated && grepl("%[[:xdigit:]]{2}", URL, useBytes = TRUE)) 
+    return(URL)
+  OK <- paste0("[^", if (!reserved) 
+    "][!'()*;=/?@#", "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz0123456789._~,:%+-", 
+    "]")
+  x <- strsplit(URL, "")[[1L]]
+  z <- grep(OK, x)
+  if (length(z)) {
+    y <- vapply(x[z], function(x) paste0("%", toupper(as.character(charToRaw(x))), 
+                                         collapse = ""), "")
+    x[z] <- y
+  }
+  paste(x, collapse = "")
 }

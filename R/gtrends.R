@@ -54,7 +54,7 @@
 #'   more than one keyword is provided due to Google restriction.
 #'
 #' @importFrom stats na.omit reshape setNames
-#' @importFrom utils URLencode read.csv
+#' @importFrom utils URLencode read.csv head
 #'
 #' @return An object of class \sQuote{gtrends} (basically a list of data
 #'   frames).
@@ -181,7 +181,13 @@ gtrends <- function(
   # ****************************************************************************
   # Request a token from Google
   # ****************************************************************************
-  comparison_item <- data.frame(geo, time,keyword, stringsAsFactors = FALSE)
+  keyword <- sapply(keyword,function(x){
+    y <- gsub("[+]","%2B",x)
+    z <- gsub(" ","+",y)
+    return(z)
+    })
+  names(keyword) <- NULL
+  comparison_item <- data.frame(keyword,geo,time, stringsAsFactors = FALSE)
 
   widget <- get_widget(comparison_item, category, gprop, hl, cookie_url,tz)
 
@@ -194,7 +200,7 @@ gtrends <- function(
   if(!onlyInterest){
     interest_by_region <- interest_by_region(widget, comparison_item, low_search_volume,tz)
     related_topics <- related_topics(widget, comparison_item, hl,tz)
-    related_queries <- related_queries(widget, comparison_item,tz)
+    related_queries <- related_queries(widget, comparison_item,tz,hl)
     res <- list(
       interest_over_time = interest_over_time,
       interest_by_country = do.call(rbind, interest_by_region[names(interest_by_region) == "country"]),
