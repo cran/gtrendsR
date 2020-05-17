@@ -1,7 +1,7 @@
 Package: gtrendsR
 Type: Package
 Title: Perform and Display Google Trends Queries
-Version: 1.4.5
+Version: 1.4.6
 Authors@R: c(person("Philippe", "Massicotte", email =
         "pmassicotte@hotmail.com", role = c("aut", "cre")), person("Dirk",
         "Eddelbuettel", email = "edd@debian.org", role = "aut"))
@@ -19,9 +19,9 @@ RoxygenNote: 7.1.0
 Suggests: knitr, rmarkdown, tinytest
 Encoding: UTF-8
 NeedsCompilation: no
-Packaged: 2020-05-06 13:43:23 UTC; filoche
+Packaged: 2020-05-17 13:24:31 UTC; filoche
 Author: Philippe Massicotte [aut, cre],
   Dirk Eddelbuettel [aut]
 Maintainer: Philippe Massicotte <pmassicotte@hotmail.com>
 Repository: CRAN
-Date/Publication: 2020-05-06 14:10:02 UTC
+Date/Publication: 2020-05-17 13:50:03 UTC
