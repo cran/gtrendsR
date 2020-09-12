@@ -1,7 +1,7 @@
 Package: gtrendsR
 Type: Package
 Title: Perform and Display Google Trends Queries
-Version: 1.4.6
+Version: 1.4.7
 Authors@R: c(person("Philippe", "Massicotte", email =
         "pmassicotte@hotmail.com", role = c("aut", "cre")), person("Dirk",
         "Eddelbuettel", email = "edd@debian.org", role = "aut"))
@@ -12,16 +12,16 @@ Description: An interface for retrieving and displaying the information
 License: GPL (>= 2)
 BugReports: https://github.com/PMassicotte/gtrendsR/issues
 URL: https://github.com/PMassicotte/gtrendsR
-Depends: R (>= 3.2.0)
+Depends: R (>= 3.5.0)
 LazyData: yes
 Imports: ggplot2, jsonlite, anytime, curl
-RoxygenNote: 7.1.0
+RoxygenNote: 7.1.1
 Suggests: knitr, rmarkdown, tinytest
 Encoding: UTF-8
 NeedsCompilation: no
-Packaged: 2020-05-17 13:24:31 UTC; filoche
+Packaged: 2020-09-12 16:48:41 UTC; filoche
 Author: Philippe Massicotte [aut, cre],
   Dirk Eddelbuettel [aut]
 Maintainer: Philippe Massicotte <pmassicotte@hotmail.com>
 Repository: CRAN
-Date/Publication: 2020-05-17 13:50:03 UTC
+Date/Publication: 2020-09-12 17:10:02 UTC
