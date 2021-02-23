@@ -1,3 +1,12 @@
+# Exit if no internet
+if (!curl::has_internet()) {
+  exit_file("Skipping tests for lack of internet.")
+}
+
+# Exit unless opted in
+if (Sys.getenv("RunAllGtrendsRTests", unset="") == "") {
+    exit_file("Skipping tests not opted into.")
+}
 
 # Single keyword ----------------------------------------------------------
 
@@ -13,7 +22,7 @@ expect_true(nrow(res$related_topics) > 0)
 expect_true(nrow(res$related_queries) > 0)
 
 # Check that the keyword is the same in all returned df.
-expect_true(all(Vectorize(identical, 'x')(
+expect_true(all(Vectorize(identical, "x")(
   list(
     unique(res$interest_over_time$keyword),
     unique(res$interest_by_country$keyword),
@@ -28,8 +37,6 @@ expect_true(all(Vectorize(identical, 'x')(
 res <- gtrends("NHL", geo = "US")
 expect_true(nrow(res$interest_by_region) > 0)
 
-
-
 # Multiple keywords -------------------------------------------------------
 
 kw <- c("NHL", "NFL")
@@ -43,7 +50,7 @@ expect_true(nrow(res$interest_by_city) > 0)
 expect_true(nrow(res$related_queries) > 0)
 
 # Check that the keyword is the same in all returned df.
-expect_true(all(Vectorize(identical, 'x')(
+expect_true(all(Vectorize(identical, "x")(
   list(
     unique(res$interest_over_time$keyword),
     unique(res$interest_by_country$keyword),
