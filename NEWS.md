@@ -1,3 +1,7 @@
+# gtrendsR 1.5.2
+
+- Various internal changes to better deal with missing data returned by queries (#418, #419).
+
 # gtrendsR 1.5.1
 
 - Fix missing `userType` in the payload which was giving a 401 error (#413). Thanks to @philipwlewis for reporting and fix proposition.

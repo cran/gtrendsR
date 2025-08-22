@@ -4,8 +4,10 @@ if (!curl::has_internet()) {
 }
 
 # Exit unless opted in
-if (Sys.getenv("RunAllGtrendsRTests", unset="") == "") {
-    exit_file("Skipping tests not opted into.")
+# Sys.setenv("RunAllGtrendsRTests" = TRUE)
+
+if (Sys.getenv("RunAllGtrendsRTests", unset = "") == "") {
+  exit_file("Skipping tests not opted into.")
 }
 
 kw <- "news"
@@ -91,5 +93,11 @@ expect_true(nrow(res$related_topics) > 0)
 expect_true(nrow(res$related_queries) > 0)
 
 #Check if the asked time range was returned correctly.
-expect_equivalent(as.Date(min(res$interest_over_time$date)), as.Date("2010-01-01"))
-expect_equivalent(as.Date(max(res$interest_over_time$date)), as.Date("2010-04-03"))
+expect_equivalent(
+  as.Date(min(res$interest_over_time$date)),
+  as.Date("2010-01-01")
+)
+expect_equivalent(
+  as.Date(max(res$interest_over_time$date)),
+  as.Date("2010-04-03")
+)
